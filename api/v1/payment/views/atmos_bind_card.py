@@ -62,10 +62,7 @@ class AtmosBindCardInitAPIView(APIView):
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        "error": openapi.Schema(
-                            type=openapi.TYPE_STRING,
-                            default=_("Неизвестная ошибка")
-                        )
+                        "error": openapi.Schema(type=openapi.TYPE_STRING,)
                     }
                 )
             )
@@ -80,7 +77,6 @@ class AtmosBindCardInitAPIView(APIView):
         response = atmos_request.post(url, data)
         description = response["result"]["description"]
         #
-        print(response)
         if description == "Нет ошибок":
             return JsonResponse(
                 {
@@ -100,7 +96,7 @@ class AtmosBindCardInitAPIView(APIView):
             )
         else:
             return JsonResponse(
-                {"error": _("Неизвестная ошибка")},
+                {"error": response["result"]["description"]},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
@@ -142,10 +138,7 @@ class AtmosBindCardConfirmAPIView(APIView):
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        "error": openapi.Schema(
-                            type=openapi.TYPE_STRING,
-                            default=_("Неизвестная ошибка")
-                        )
+                        "error": openapi.Schema(type=openapi.TYPE_STRING,)
                     }
                 )
             )
@@ -153,13 +146,12 @@ class AtmosBindCardConfirmAPIView(APIView):
     )
     def post(self, request, *args, **kwargs):
         url = "https://partner.atmos.uz/partner/bind-card/confirm"
-        transaction_id = request.data.get("transaction_id", 2677)
-        otp = request.data.get("otp", "111111")
+        transaction_id = request.data.get("transaction_id") # 2677
+        otp = request.data.get("otp") # "111111"
         data = {"transaction_id": transaction_id, "otp": otp}
         response = atmos_request.post(url, data)
         description = response["result"]["description"]
         #
-        print("response", response)
         if description == "Нет ошибок":
             return JsonResponse(
                 {"message": _("Карта подтверждена")}, status=status.HTTP_200_OK
@@ -171,7 +163,7 @@ class AtmosBindCardConfirmAPIView(APIView):
             )
         else:
             return JsonResponse(
-                {"error": _("Неизвестная ошибка")},
+                {"error": response["result"]["description"]},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
@@ -179,28 +171,28 @@ class AtmosBindCardConfirmAPIView(APIView):
 class AtmosBindCardDialAPIView(APIView):
 
     @swagger_auto_schema(
+        operation_summary="Request a call",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
                 "transaction_id": openapi.Schema(type=openapi.TYPE_STRING)
             },
             required=["transaction_id"],
-            responses={
-                status.HTTP_200_OK: openapi.Response(
-                    description="Card confirmed",
-                    schema=openapi.Schema(
-                        type=openapi.TYPE_OBJECT,
-                        properties={
-                            "message": openapi.Schema(
-                                type=openapi.TYPE_STRING,
-                                default=_("Карта подтверждена")
-                            ),
-                        }
-                    )
-                ),
-            }
-
-        )
+        ),
+        responses={
+            status.HTTP_200_OK: openapi.Response(
+                description="Card confirmed",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            default=_("Карта подтверждена")
+                        ),
+                    }
+                )
+            ),
+        }
     )
     def post(self, request, *args, **kwargs):
         url = "https://partner.atmos.uz/partner/bind-card/dial"
@@ -249,10 +241,7 @@ class AtmosBindCardListAPIView(APIView):
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        "error": openapi.Schema(
-                            type=openapi.TYPE_STRING,
-                            default=_("Неизвестная ошибка")
-                        )
+                        "error": openapi.Schema(type=openapi.TYPE_STRING,)
                     }
                 )
             ),
@@ -269,12 +258,11 @@ class AtmosBindCardListAPIView(APIView):
         response = atmos_request.post(url, data)
         description = response["result"]["description"]
         #
-        print("response", response)
         if description == "Нет ошибок":
             return JsonResponse({"card_list": response["card_list"]})
         else:
             return JsonResponse(
-                {"error": _("Неизвестная ошибка")},
+                {"error": response["result"]["description"]},
                 status=status.HTTP_406_NOT_ACCEPTABLE
             )
 
@@ -288,7 +276,7 @@ class AtmosBindCardRemoveAPIView(APIView):
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                "card_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "card_id": openapi.Schema(type=openapi.TYPE_INTEGER,),
                 "token": openapi.Schema(type=openapi.TYPE_STRING),
             }
         ),
@@ -298,12 +286,8 @@ class AtmosBindCardRemoveAPIView(APIView):
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        "error": openapi.Schema(
-                            type=openapi.TYPE_STRING,
-                            default=_("Неизвестная ошибка")
-                        )
+                        "message": openapi.Schema(type=openapi.TYPE_STRING,)
                     }
-
                 )
             ),
         }
@@ -314,79 +298,4 @@ class AtmosBindCardRemoveAPIView(APIView):
         token = request.data.get("token")
         data = {"id": card_id, "token": token}
         response = atmos_request.post(url, data=data)
-        print("response", response)
         return JsonResponse({"message": "card deleted"})
-
-
-# Pay Scheduler
-class AtmosPaySchedulerCreateAPIView(APIView):
-    permission_classes = ()
-    authentication_classes = ()
-
-    def post(self, request, *args, **kwargs):
-        url = "https://partner.atmos.uz/pay-scheduler/create"
-        date_start = datetime.datetime.now()
-        date_finish = date_start.replace(year=date_start.year+1)
-        user_id = "2410"
-        amount = 751240000
-        cards = "[1666741]"
-        phone = "998974445566"
-        data = {
-            "payment": {
-                "date_start": date_start.strftime("%Y-%m-%d"),
-                "date_finish": date_finish.strftime("%Y-%m-%d"),
-                "login": "998991234567",
-                "pay_day": date_start.day,
-                "pay_time": "10:00",
-                "repeat_interval": 2,
-                "repeat_times":  2,
-                "ext_id": user_id,
-                "repeat_low_balance": True,
-                "amount": amount,
-                "cards": cards,
-                "store_id": settings.ATMOS_STORE_ID,
-                "account": phone,
-            }
-        }
-        response = atmos_request.post(url, data)
-        print("response", response)
-        return JsonResponse({})
-
-
-class AtmosPaySchedulerConfirmAPIView(APIView):
-
-    def post(self, request, *args, **kwargs):
-        url = "https://partner.atmos.uz/pay-scheduler/confirm"
-        sсheduler_id = request.data.get("sсheduler_id")
-        otp = request.data.get("otp")
-        data = {"sсheduler_id": sсheduler_id, "otp": otp}
-        response = atmos_request.post(url, data)
-        return JsonResponse({})
-
-
-class AtmosPaySchedulerChangeAPIView(APIView):
-
-    def post(self, request, *args, **kwargs):
-        # TODO "delete": True
-        url = "https://partner.atmos.uz/pay-scheduler/change"
-        data = {
-            "sсheduler_id": 75127,
-            "delete": False,
-            "payment": {
-                "date_start": "2022-12-13",
-                "date_finish": "2023-12-13",
-                "login": "9989881234567",
-                "pay_day": 16,
-                "pay_time": "14:14",
-                "repeat_interval": 2,
-                "repeat_times": 10,
-                "ext_id": "2410",
-                "repeat_low_balance": True,
-                "amount": 111110000,
-                "cards": "[1666741]",
-                "store_id": 7777,
-                "account": "998974445566"
-            }
-        }
-        response = atmos_request.post(url, data)
-        return JsonResponse({})

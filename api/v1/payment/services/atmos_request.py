@@ -39,11 +39,11 @@ def post(url, data):
         response = requests.post(
             url=url, headers=get_headers(token), json=data,
         )
+        print("response: ", response.json())
         return response.json()
     else:
         return {"error": "failed to obtain token"}
 
 
 def get(url, data):
-    # TODO
     pass
