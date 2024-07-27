@@ -16,8 +16,6 @@ from payment import models
 
 # Pay Scheduler
 class AtmosPaySchedulerCreateAPIView(APIView):
-    permission_classes = ()
-    authentication_classes = ()
 
     def post(self, request, *args, **kwargs):
         # from request - user, amount,

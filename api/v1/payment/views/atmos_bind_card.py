@@ -16,11 +16,6 @@ from payment import models
 
 # Bind Card
 class AtmosBindCardInitAPIView(APIView):
-    permission_classes = ()
-    authentication_classes = ()
-
-    def get_user(self):
-        return get_object_or_404(get_user_model(), pk=self.request._auth["user_id"])
 
     @swagger_auto_schema(
         operation_summary="Initializes card binding",
@@ -69,7 +64,6 @@ class AtmosBindCardInitAPIView(APIView):
         }
     )
     def post(self, request, *args, **kwargs):
-        # user = self.get_user()
         url = "https://partner.atmos.uz/partner/bind-card/init"
         card_number = request.data.get("card_number", "8600490744313347")
         expiry = request.data.get("expiry", "2410")
@@ -102,8 +96,6 @@ class AtmosBindCardInitAPIView(APIView):
 
 
 class AtmosBindCardConfirmAPIView(APIView):
-    permission_classes = ()
-    authentication_classes = ()
 
     @swagger_auto_schema(
         operation_summary="Confirm card binding",
@@ -186,9 +178,17 @@ class AtmosBindCardDialAPIView(APIView):
                     type=openapi.TYPE_OBJECT,
                     properties={
                         "message": openapi.Schema(
-                            type=openapi.TYPE_STRING,
-                            default=_("Карта подтверждена")
+                            type=openapi.TYPE_STRING, default="sms_sent",
                         ),
+                    }
+                )
+            ),
+            status.HTTP_406_NOT_ACCEPTABLE: openapi.Response(
+                description="Unexpected error",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "error": openapi.Schema(type=openapi.TYPE_STRING, )
                     }
                 )
             ),
@@ -198,13 +198,19 @@ class AtmosBindCardDialAPIView(APIView):
         url = "https://partner.atmos.uz/partner/bind-card/dial"
         transaction_id = request.data.get("transaction_id")
         data = {"transaction_id": transaction_id}
-        atmos_request.post(url, data)
-        return JsonResponse({"message": "sms sent"})
+        response = atmos_request.post(url, data)
+        description = response["result"]["description"]
+        #
+        if description == "Нет ошибок":
+            return JsonResponse({"message": "sms sent"})
+        else:
+            return JsonResponse(
+                {"error": response["result"]["description"]},
+                status=status.HTTP_406_NOT_ACCEPTABLE
+            )
 
 
 class AtmosBindCardListAPIView(APIView):
-    permission_classes = ()
-    authentication_classes = ()
 
     @swagger_auto_schema(
         operation_summary="Card list",
@@ -268,8 +274,6 @@ class AtmosBindCardListAPIView(APIView):
 
 
 class AtmosBindCardRemoveAPIView(APIView):
-    permission_classes = ()
-    authentication_classes = ()
 
     @swagger_auto_schema(
         operation_summary="Remove card",
@@ -286,7 +290,19 @@ class AtmosBindCardRemoveAPIView(APIView):
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        "message": openapi.Schema(type=openapi.TYPE_STRING,)
+                        "message": openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            default="card successfully removed",
+                        )
+                    }
+                )
+            ),
+            status.HTTP_406_NOT_ACCEPTABLE: openapi.Response(
+                description="Unexpected error",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "error": openapi.Schema(type=openapi.TYPE_STRING, )
                     }
                 )
             ),
@@ -298,4 +314,12 @@ class AtmosBindCardRemoveAPIView(APIView):
         token = request.data.get("token")
         data = {"id": card_id, "token": token}
         response = atmos_request.post(url, data=data)
-        return JsonResponse({"message": "card deleted"})
+        description = response["result"]["description"]
+        #
+        if description == "Нет ошибок":
+            return JsonResponse({"message": "card successfully removed"})
+        else:
+            return JsonResponse(
+                {"error": response["result"]["description"]},
+                status=status.HTTP_406_NOT_ACCEPTABLE
+            )

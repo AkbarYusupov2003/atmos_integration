@@ -17,8 +17,6 @@ from payment import models
 
 # Merchant
 class AtmosMerchantCreateAPIView(APIView):
-    permission_classes = ()
-    authentication_classes = ()
 
     @swagger_auto_schema(
         operation_summary="Create transaction",
@@ -53,15 +51,20 @@ class AtmosMerchantCreateAPIView(APIView):
     def post(self, request, *args, **kwargs):
         url = "https://partner.atmos.uz/merchant/pay/create"
         amount = request.data.get("amount")
-        # TODO create order for user
-        order_id = "1"
+        order_id = "1" # str(models.Order.objects.create(owner_id=request._auth["user_id"]).pk)
+        lang = "en"
+        if request.LANGUAGE_CODE in ("uz", "ru", "en", ):
+            lang = request.LANGUAGE_CODE
+        elif request.LANGUAGE_CODE == "oz":
+            lang = "uz"
         data = {
-            "amount": amount, "account": order_id, # "terminal_id": "TODO",
-            "store_id": str(settings.ATMOS_STORE_ID), "lang": "ru"
+            "amount": amount, "account": order_id,
+            "store_id": str(settings.ATMOS_STORE_ID), "lang": lang
         }
         response = atmos_request.post(url, data)
         if response["result"]["code"] == "OK":
             TransactionManager.create_instance(data={
+                "order_id": order_id,
                 "transaction_id": response["transaction_id"],
                 "payment_service": models.Transaction.PaymentServiceChoices.atmos,
                 "amount": amount,
@@ -78,8 +81,6 @@ class AtmosMerchantCreateAPIView(APIView):
 
 
 class AtmosMerchantPreApplyAPIView(APIView):
-    permission_classes = ()
-    authentication_classes = ()
 
     @swagger_auto_schema(
         operation_summary="Pre apply transaction",
@@ -136,8 +137,6 @@ class AtmosMerchantPreApplyAPIView(APIView):
 
 
 class AtmosMerchantApplyAPIView(APIView):
-    permission_classes = ()
-    authentication_classes = ()
 
     @swagger_auto_schema(
         operation_summary="Apply transaction",
@@ -203,9 +202,65 @@ class AtmosMerchantApplyAPIView(APIView):
             )
 
 
+class AtmosMerchantReverseAPIView(APIView):
+
+    @swagger_auto_schema(
+        operation_summary="Reverse transaction",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "transaction_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "reason": openapi.Schema(type=openapi.TYPE_STRING),
+            },
+            required=["transaction_id"],
+        ),
+        responses={
+            status.HTTP_200_OK: openapi.Response(
+                description="Transaction reversed",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "transaction_id": openapi.Schema(type=openapi.TYPE_STRING,)
+                    }
+                )
+            ),
+            status.HTTP_406_NOT_ACCEPTABLE: openapi.Response(
+                description="Unexpected error",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "error": openapi.Schema(type=openapi.TYPE_STRING, )
+                    }
+                )
+            )
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        url = "https://partner.atmos.uz/merchant/pay/reverse"
+        transaction_id = request.data.get("transaction_id")
+        try:
+            transaction = models.Transaction.objects.get(
+                transaction_id=transaction_id,
+                # order__owner_id=request._auth["user_id"]
+            )
+        except models.Transaction.DoesNotExist:
+            return JsonResponse(
+                {"error": _("Неизвестная ошибка")},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+        reason = request.data.get("reason", "")
+        data = {"transaction_id": transaction_id, "reason": reason}
+        response = atmos_request.post(url, data)
+        if response["result"]["code"] == "OK":
+            return JsonResponse({"transaction_id": transaction_id})
+        else:
+            return JsonResponse(
+                {"error": response["result"]["description"]},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+
 class AtmosMerchantGetAPIView(APIView):
-    permission_classes = ()
-    authentication_classes = ()
 
     @swagger_auto_schema(
         operation_summary="Get transaction",
@@ -246,7 +301,10 @@ class AtmosMerchantGetAPIView(APIView):
         url = "https://partner.atmos.uz/merchant/pay/get"
         transaction_id = request.data.get("transaction_id")
         try:
-            transaction = models.Transaction.objects.get(transaction_id=transaction_id)
+            transaction = models.Transaction.objects.get(
+                transaction_id=transaction_id,
+                # order__owner_id=request._auth["user_id"]
+            )
         except models.Transaction.DoesNotExist:
             return JsonResponse(
                 {"error": _("Неизвестная ошибка")},

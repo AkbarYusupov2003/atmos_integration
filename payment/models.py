@@ -8,6 +8,14 @@ class CurrencyChoices(models.TextChoices):
     usd = "USD", "USD"
 
 
+class Order(models.Model):
+    owner = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name = "Заказ"
+        verbose_name_plural = "Заказы"
+
+
 class Transaction(models.Model):
     class StatusChoices(models.TextChoices):
         created = "CREATED", _("Создана")
@@ -25,6 +33,10 @@ class Transaction(models.Model):
         alif = "alif", "Alif"
         atmos = "atmos", "Atmos"
 
+    order = models.ForeignKey(
+        Order, on_delete=models.PROTECT, related_name="transactions", verbose_name="Заказ",
+    )
+    #
     transaction_id = models.CharField(
         "Provider transaction ID", max_length=36, db_index=True, null=True, blank=True
     )
@@ -55,6 +67,7 @@ class CardToken(models.Model):
     owner = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     token = models.CharField(max_length=512)
     phone = models.CharField(max_length=16)
+    is_active = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "Транзакция"
